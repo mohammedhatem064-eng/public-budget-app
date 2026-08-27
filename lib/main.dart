@@ -1,12 +1,7 @@
 import 'package:flutter/material.dart';
 
 void main() {
-  runApp(
-    const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: BudgetApp(),
-    ),
-  );
+  runApp(const BudgetApp());
 }
 
 // ============================================================
@@ -458,14 +453,37 @@ class _BudgetAppState extends State<BudgetApp> {
       theme: ThemeData(
         useMaterial3: true,
         fontFamily: 'Arial',
-        colorSchemeSeed: const Color(0xFF1565C0),
+        colorSchemeSeed: const Color(0xFF00897B),
         brightness: Brightness.light,
+        scaffoldBackgroundColor: const Color(0xFFF7FAFC),
+        appBarTheme: const AppBarTheme(
+          centerTitle: true,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          height: 72,
+          indicatorShape: StadiumBorder(),
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          elevation: 0,
+        ),
       ),
       darkTheme: ThemeData(
         useMaterial3: true,
         fontFamily: 'Arial',
-        colorSchemeSeed: const Color(0xFF1565C0),
+        colorSchemeSeed: const Color(0xFF26A69A),
         brightness: Brightness.dark,
+        appBarTheme: const AppBarTheme(
+          centerTitle: true,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          height: 72,
+          indicatorShape: StadiumBorder(),
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          elevation: 0,
+        ),
       ),
       themeMode: themeMode,
       home: HomePage(
@@ -557,46 +575,549 @@ class _HomePageState extends State<HomePage> {
             _governoratesPage(context),
           ],
         ),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _currentPage,
+          onDestinationSelected: (index) {
+            _pageController.animateToPage(
+              index,
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.easeOutCubic,
+            );
+          },
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home_rounded),
+              label: 'الرئيسية',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.account_balance_outlined),
+              selectedIcon: Icon(Icons.account_balance_rounded),
+              label: 'الموازنة',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.map_outlined),
+              selectedIcon: Icon(Icons.map_rounded),
+              label: 'المحافظات',
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _budgetGuidePage(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 26),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
       children: [
-        _welcomeCard(context),
-        const SizedBox(height: 18),
-        _budgetIntroSection(context),
-        const SizedBox(height: 18),
-        _fullBudgetPageButton(context),
-        const SizedBox(height: 22),
-        FilledButton.icon(
-          onPressed: () {
-            _pageController.nextPage(
-              duration: const Duration(milliseconds: 400),
-              curve: Curves.easeOutCubic,
-            );
-          },
-          icon: const Icon(Icons.arrow_back_rounded),
-          label: const Text(
-            'التالي — استكشف المحافظات',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
+        Container(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 26),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+              colors: [
+                scheme.primaryContainer,
+                scheme.secondaryContainer,
+              ],
             ),
+            borderRadius: BorderRadius.circular(30),
           ),
-          style: FilledButton.styleFrom(
-            minimumSize: const Size.fromHeight(56),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: scheme.primary,
+                    child: Icon(
+                      Icons.account_balance_rounded,
+                      color: scheme.onPrimary,
+                      size: 27,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '🇪🇬 مصر',
+                          style: TextStyle(
+                            color: scheme.primary,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'الموازنة ببساطة',
+                          style: TextStyle(
+                            fontSize: 25,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 28),
+              SizedBox(
+                height: 500,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    // الإيرادات
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: _homeCircleButton(
+                          context,
+                          label: 'الإيرادات',
+                          icon: Icons.savings_rounded,
+                          onTap: () => _showQuickMeaning(
+                            context,
+                            'الإيرادات',
+                            'الموارد التي تحصل عليها الدولة وتستخدم في تمويل الاحتياجات العامة.',
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // الموازنة في المنتصف
+                    Positioned(
+                      top: 150,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: Container(
+                          width: 158,
+                          height: 158,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              begin: Alignment.topRight,
+                              end: Alignment.bottomLeft,
+                              colors: [
+                                scheme.primary,
+                                scheme.secondary,
+                              ],
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: scheme.primary.withOpacity(.22),
+                                blurRadius: 24,
+                                spreadRadius: 5,
+                              ),
+                            ],
+                          ),
+                          child: const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.account_balance_rounded,
+                                color: Colors.white,
+                                size: 38,
+                              ),
+                              SizedBox(height: 7),
+                              Text(
+                                'الموازنة',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              SizedBox(height: 3),
+                              Text(
+                                'الإيرادات والمصروفات',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // المؤشرات
+                    Positioned(
+                      left: 4,
+                      top: 165,
+                      child: _homeCircleButton(
+                        context,
+                        label: 'المؤشرات',
+                        icon: Icons.auto_graph_rounded,
+                        onTap: () => _pageController.animateToPage(
+                          1,
+                          duration: const Duration(milliseconds: 350),
+                          curve: Curves.easeOutCubic,
+                        ),
+                      ),
+                    ),
+
+                    // المصروفات
+                    Positioned(
+                      right: 4,
+                      top: 165,
+                      child: _homeCircleButton(
+                        context,
+                        label: 'المصروفات',
+                        icon: Icons.account_balance_wallet_rounded,
+                        onTap: () => _showQuickMeaning(
+                          context,
+                          'المصروفات',
+                          'أوجه الإنفاق التي تخصص للخدمات والبرامج والمشروعات والالتزامات العامة.',
+                        ),
+                      ),
+                    ),
+
+                    // يعني إيه؟
+                    Positioned(
+                      left: 42,
+                      top: 390,
+                      child: _homeCircleButton(
+                        context,
+                        label: 'يعني إيه؟',
+                        icon: Icons.help_outline_rounded,
+                        onTap: () => _showGlossary(context),
+                      ),
+                    ),
+
+                    // المحافظات
+                    Positioned(
+                      right: 42,
+                      top: 390,
+                      child: _homeCircleButton(
+                        context,
+                        label: 'المحافظات',
+                        icon: Icons.map_rounded,
+                        onTap: () => _pageController.animateToPage(
+                          2,
+                          duration: const Duration(milliseconds: 350),
+                          curve: Curves.easeOutCubic,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
+
+        const SizedBox(height: 16),
+
+        _ministerSimulatorCard(context),
+
+        const SizedBox(height: 12),
+
+        _meaningCard(
+          context,
+          title: 'مصطلحات الموازنة ببساطة',
+          subtitle: 'اضغط على «يعني إيه؟» لفهم أهم المصطلحات من غير تعقيد.',
+          icon: Icons.lightbulb_rounded,
+          onTap: () => _showGlossary(context),
+        ),
+
+        const SizedBox(height: 18),
+
+        _budgetIntroSection(context),
       ],
     );
   }
 
+  Widget _homeCircleButton(
+    BuildContext context, {
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 68,
+            height: 68,
+            decoration: BoxDecoration(
+              color: scheme.surface,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: scheme.primary.withOpacity(.18),
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: scheme.shadow.withOpacity(.08),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(
+              icon,
+              color: scheme.primary,
+              size: 29,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showQuickMeaning(
+    BuildContext context,
+    String title,
+    String text,
+  ) {
+    final scheme = Theme.of(context).colorScheme;
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: scheme.primaryContainer,
+                  child: Icon(
+                    Icons.help_outline_rounded,
+                    color: scheme.primary,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'يعني إيه؟ $title',
+                  style: const TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  text,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.75,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _meaningCard(
+    BuildContext context, {
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(17),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+              colors: [scheme.tertiaryContainer, scheme.primaryContainer],
+            ),
+            borderRadius: BorderRadius.circular(22),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 26,
+                backgroundColor: scheme.tertiary,
+                child: Icon(icon, color: scheme.onTertiary),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 4),
+                    Text(subtitle, style: TextStyle(fontSize: 12.5, height: 1.5, color: scheme.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+              Icon(Icons.arrow_back_ios_new_rounded, color: scheme.primary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _ministerSimulatorCard(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const MinisterSimulationPage()),
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+              colors: [scheme.primary, scheme.secondary],
+            ),
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 58,
+                height: 58,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(.16),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 30),
+              ),
+              const SizedBox(width: 13),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('لو كنت وزير المالية؟', style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900)),
+                    SizedBox(height: 5),
+                    Text(
+                      'اختار محافظتك ووزّع 100 جنيه افتراضية على أولوياتك، ثم شاهد كيف يمكن أن تتغير أولوياتك ونتيجة قرارك.',
+                      style: TextStyle(color: Colors.white, fontSize: 12.5, height: 1.6),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showGlossary(BuildContext context) {
+    final terms = <String, String>{
+      'الموازنة العامة': 'الخطة المالية التي توضح كيف تحصل الدولة على مواردها وكيف توجهها إلى أوجه الإنفاق المختلفة خلال السنة المالية.',
+      'الإيرادات': 'الموارد التي تحصل عليها الدولة وتستخدم في تمويل الاحتياجات العامة.',
+      'المصروفات': 'أوجه الإنفاق التي تخصص للخدمات والبرامج والمشروعات والالتزامات العامة.',
+      'الضرائب': 'مبالغ تحصل عليها الدولة وفقاً للقانون وتدخل ضمن مواردها العامة.',
+      'العجز': 'يظهر عندما تكون المصروفات أكبر من الموارد المتاحة.',
+      'الفائض': 'يظهر عندما تزيد الموارد عن المصروفات.',
+      'التمويل': 'كيفية تغطية الاحتياجات التمويلية الناتجة عن الخطة المالية عندما لا تكفي الموارد المتاحة.',
+      'الاستثمارات': 'الإنفاق الموجه إلى الأصول والمشروعات غير المالية التي تدعم التنمية.',
+      'فوائد الدين': 'المبالغ التي تتحملها الموازنة مقابل تكلفة خدمة الدين.',
+      'الدعم والمزايا الاجتماعية': 'إنفاق موجه لمساندة فئات أو احتياجات اجتماعية وفق البرامج والقرارات المعتمدة.',
+      'وزارة المالية': 'الجهة الحكومية المسؤولة عن إعداد وإدارة السياسة المالية للدولة، ومن مهامها إعداد مشروع الموازنة العامة ومتابعة تنفيذها.',
+    };
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        final scheme = Theme.of(sheetContext).colorScheme;
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),
+              child: SizedBox(
+                height: MediaQuery.of(sheetContext).size.height * .78,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('يعني إيه؟', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 5),
+                    Text('قاموس مبسط للمصطلحات المهمة في التطبيق.', style: TextStyle(color: scheme.onSurfaceVariant)),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: terms.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (_, index) {
+                          final entry = terms.entries.elementAt(index);
+                          return Card(
+                            elevation: 0,
+                            color: scheme.surfaceContainerHighest,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17)),
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(Icons.info_outline_rounded, color: scheme.primary),
+                                  const SizedBox(width: 9),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(entry.key, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w900)),
+                                        const SizedBox(height: 4),
+                                        Text(entry.value, style: const TextStyle(fontSize: 13.2, height: 1.65)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   Widget _fullBudgetPage(BuildContext context) {
     return ListView(
@@ -1465,6 +1986,38 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+
+  void _showMeaningDialog(BuildContext context, String title, String currentText) {
+    final meanings = <String, String>{
+      'الإيرادات': 'هي الموارد التي تحصل عليها الدولة وتُستخدم في تمويل الاحتياجات العامة.',
+      'المصروفات': 'هي أوجه الإنفاق التي تُخصص للخدمات والبرامج والمشروعات والالتزامات العامة.',
+      'العجز أو الفائض': 'هو الفرق بين الموارد والمصروفات: العجز عندما تكون المصروفات أكبر، والفائض عندما تزيد الموارد.',
+      'التمويل': 'هو كيفية تغطية الاحتياجات التمويلية عندما لا تكفي الموارد المتاحة.',
+    };
+    showDialog(
+      context: context,
+      builder: (_) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.lightbulb_rounded, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 8),
+              Expanded(child: Text('يعني إيه $title؟')),
+            ],
+          ),
+          content: Text(
+            meanings[title] ?? currentText,
+            style: const TextStyle(fontSize: 15, height: 1.8),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('تمام')),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _budgetComponentCard(
     BuildContext context, {
     required String title,
@@ -1519,6 +2072,15 @@ class _HomePageState extends State<HomePage> {
                     fontSize: 13.5,
                     height: 1.75,
                     color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: TextButton.icon(
+                    onPressed: () => _showMeaningDialog(context, title, text),
+                    icon: const Icon(Icons.help_outline_rounded, size: 18),
+                    label: const Text('يعني إيه؟'),
                   ),
                 ),
               ],
@@ -1950,6 +2512,949 @@ class _HomePageState extends State<HomePage> {
     );
   }
 }
+
+
+// ============================================================
+// "لو كنت وزير المالية؟" — EDUCATIONAL SIMULATION
+// ============================================================
+
+class MinisterSimulationPage extends StatefulWidget {
+  const MinisterSimulationPage({super.key});
+
+  @override
+  State<MinisterSimulationPage> createState() => _MinisterSimulationPageState();
+}
+
+class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
+  Governorate? selectedGovernorate;
+
+  // ميزانية تعليمية افتراضية — 100 جنيه كما تم الاتفاق.
+  static const double totalBudget = 100;
+
+  final Map<String, double> allocation = {
+    'الصحة': 0,
+    'التعليم': 0,
+    'الطرق والنقل': 0,
+    'الزراعة': 0,
+    'مياه الشرب والصرف الصحي': 0,
+    'الخدمات المحلية': 0,
+    'النظافة والبيئة': 0,
+    'احتياطي': 0,
+  };
+
+  final TextEditingController suggestionController = TextEditingController();
+
+  double get allocated =>
+      allocation.values.fold(0, (sum, value) => sum + value);
+
+  double get remaining => totalBudget - allocated;
+
+  @override
+  void dispose() {
+    suggestionController.dispose();
+    super.dispose();
+  }
+
+  String money(double value) {
+    if (value == value.roundToDouble()) {
+      return value.round().toString();
+    }
+    return value.toStringAsFixed(1);
+  }
+
+  void resetBudget() {
+    setState(() {
+      for (final key in allocation.keys) {
+        allocation[key] = 0;
+      }
+    });
+  }
+
+  void showRevenueSources() {
+    final g = selectedGovernorate;
+    if (g == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 6, 18, 20),
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                Text(
+                  'موارد الدولة والأنشطة — ${g.name}',
+                  style: const TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'هذه الشاشة تعليمية: لا تمثل إيرادات فعلية للمحافظة، وإنما تبسط فكرة الموارد التي يمكن أن تدعم النشاط الاقتصادي والمالي.',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    height: 1.6,
+                    color: Theme.of(sheetContext)
+                        .colorScheme
+                        .onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                ...[
+                  ('الضرائب', Icons.receipt_long_rounded),
+                  ('الزراعة', Icons.agriculture_rounded),
+                  ('التجارة', Icons.storefront_rounded),
+                  ('الصناعة', Icons.factory_rounded),
+                  ('الرسوم والخدمات', Icons.payments_rounded),
+                ].map(
+                  (item) => Card(
+                    elevation: 0,
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        child: Icon(item.$2),
+                      ),
+                      title: Text(
+                        item.$1,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Card(
+                  elevation: 0,
+                  color: Theme.of(sheetContext)
+                      .colorScheme
+                      .primaryContainer,
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Text(
+                      'القطاعات الواردة في بيانات المحافظة: ${g.sectors}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        height: 1.7,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'ملاحظة: الإيرادات الفعلية للدولة ليست موزعة على المحافظات بهذه الصورة؛ هذه أمثلة تعليمية لتوضيح فكرة الموارد والاختيارات.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.6,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void showProblemSolver() {
+    final problems = <Map<String, dynamic>>[
+      {
+        'title': 'ضغط على الخدمات الصحية',
+        'description':
+            'الموارد محدودة، وفي المقابل توجد حاجة لرفع جودة الخدمات الصحية. كيف تعيد ترتيب أولوياتك؟',
+        'options': [
+          'زيادة تمويل الصحة',
+          'إعادة توزيع جزء من قطاع آخر',
+          'البحث عن موارد إضافية',
+        ],
+      },
+      {
+        'title': 'ازدحام وضعف في النقل',
+        'description':
+            'تحتاج الدولة إلى تحسين النقل، لكن زيادة الإنفاق على النقل تعني مفاضلة مع قطاعات أخرى.',
+        'options': [
+          'زيادة تمويل النقل',
+          'التركيز على مشروعات ذات أولوية أعلى',
+          'إعادة توزيع الموازنة تدريجيًا',
+        ],
+      },
+      {
+        'title': 'ضغط على التعليم',
+        'description':
+            'هناك احتياج لمزيد من المدارس والخدمات التعليمية مع ثبات الميزانية الافتراضية.',
+        'options': [
+          'رفع أولوية التعليم',
+          'تخصيص جزء من الاحتياطي',
+          'إعادة ترتيب القطاعات الأقل أولوية',
+        ],
+      },
+    ];
+
+    int selected = 0;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final problem = problems[selected];
+            return Directionality(
+              textDirection: TextDirection.rtl,
+              child: AlertDialog(
+                title: const Text(
+                  '🚨 حل مشكلة مالية',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+                content: SizedBox(
+                  width: double.maxFinite,
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      DropdownButtonFormField<int>(
+                        value: selected,
+                        decoration: InputDecoration(
+                          labelText: 'اختر المشكلة',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                        ),
+                        items: List.generate(
+                          problems.length,
+                          (index) => DropdownMenuItem(
+                            value: index,
+                            child: Text(problems[index]['title'] as String),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setDialogState(() => selected = value);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        problem['description'] as String,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          height: 1.7,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      ...List<String>.from(problem['options'] as List).map(
+                        (option) => Card(
+                          elevation: 0,
+                          child: ListTile(
+                            leading: const Icon(
+                              Icons.radio_button_checked_rounded,
+                            ),
+                            title: Text(option),
+                            onTap: () {
+                              Navigator.pop(dialogContext);
+                              showDialog(
+                                context: this.context,
+                                builder: (_) => Directionality(
+                                  textDirection: TextDirection.rtl,
+                                  child: AlertDialog(
+                                    title: const Text(
+                                      'تحليل قرارك',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    content: Text(
+                                      'اخترت: $option\n\n'
+                                      'هذا القرار قد يساعد في رفع أولوية المشكلة، لكنه يعني أن مواردك محدودة، ولذلك يجب أن تفكر فيما سيتم تقليله أو إعادة ترتيبه في المقابل.\n\n'
+                                      'في الموازنة الحقيقية، القرار يعتمد على حجم الاحتياج والموارد المتاحة والسياسات والأهداف العامة.',
+                                      style: const TextStyle(
+                                        fontSize: 13.5,
+                                        height: 1.75,
+                                      ),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: const Text('فهمت'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    child: const Text('إغلاق'),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void showSuggestionForm() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              18,
+              8,
+              18,
+              MediaQuery.of(sheetContext).viewInsets.bottom + 24,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  '💡 اقترح لوزارة المالية',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 7),
+                Text(
+                  'اكتب فكرتك لتحسين ترتيب الأولويات أو معالجة مشكلة مالية.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    height: 1.6,
+                    color: Theme.of(sheetContext)
+                        .colorScheme
+                        .onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: suggestionController,
+                  maxLines: 5,
+                  textInputAction: TextInputAction.newline,
+                  decoration: InputDecoration(
+                    hintText: 'اكتب اقتراحك هنا...',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  onPressed: () {
+                    final suggestion =
+                        suggestionController.text.trim();
+                    if (suggestion.isEmpty) return;
+
+                    Navigator.pop(sheetContext);
+                    showDialog(
+                      context: this.context,
+                      builder: (_) => Directionality(
+                        textDirection: TextDirection.rtl,
+                        child: AlertDialog(
+                          title: const Text(
+                            'تم تسجيل اقتراحك',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          content: const Text(
+                            'شكرًا لمشاركتك. هذا الاقتراح جزء من تجربة تعليمية، وإذا تم ربط التطبيق لاحقًا بخدمة إرسال فعلية يمكن إرساله للجهة المختصة.',
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              height: 1.7,
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('تمام'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.send_rounded),
+                  label: const Text(
+                    'حفظ الاقتراح',
+                    style: TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void showResult() {
+    if (selectedGovernorate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('اختار المحافظة أولًا.'),
+        ),
+      );
+      return;
+    }
+
+    if ((remaining).abs() > 0.001) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('لازم توزع الـ100 جنيه كاملة قبل اعتماد الموازنة.'),
+        ),
+      );
+      return;
+    }
+
+    final entries = allocation.entries
+        .where((e) => e.value > 0)
+        .toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    final top = entries.isNotEmpty ? entries.first : null;
+    final usedSectors = entries.length;
+
+    // مؤشر تعليمي فقط، وليس تقييمًا اقتصاديًا حقيقيًا.
+    final balanceScore = ((usedSectors / allocation.length) * 60 +
+            (top == null ? 0 : (top.value / totalBudget) * 40))
+        .clamp(0.0, 100.0);
+
+    String priorityText;
+    if (top == null) {
+      priorityText = 'لم يتم تحديد أولوية.';
+    } else if (top.value >= 40) {
+      priorityText =
+          'أعطيت أولوية قوية لـ${top.key} بنسبة ${money(top.value)}%.';
+    } else {
+      priorityText =
+          'أعلى أولوية عندك هي ${top.key} بنسبة ${money(top.value)}%.';
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        final scheme = Theme.of(sheetContext).colorScheme;
+
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 6, 18, 24),
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          scheme.primary,
+                          scheme.secondary,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.emoji_events_rounded,
+                          color: Colors.white,
+                          size: 34,
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'موازنتك كوزير للمالية',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 23,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        SizedBox(height: 5),
+                        Text(
+                          'نتيجة تعليمية مبنية على اختياراتك، وليست توقعًا اقتصاديًا حقيقيًا.',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12.5,
+                            height: 1.65,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'المحافظة: ${selectedGovernorate!.name}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            priorityText,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              height: 1.7,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          LinearProgressIndicator(
+                            value: balanceScore / 100,
+                            minHeight: 10,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          const SizedBox(height: 7),
+                          Text(
+                            'مؤشر التفاعل التعليمي: ${balanceScore.toStringAsFixed(0)} / 100',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: scheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'توزيعك للـ100 جنيه',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 9),
+                  ...entries.map(
+                    (entry) => Padding(
+                      padding: const EdgeInsets.only(bottom: 9),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              entry.key,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '${money(entry.value)} جنيه',
+                            style: TextStyle(
+                              color: scheme.primary,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Card(
+                    color: scheme.primaryContainer,
+                    child: const Padding(
+                      padding: EdgeInsets.all(15),
+                      child: Text(
+                        'ماذا تعني النتيجة؟\n'
+                        'كل جنيه وضعته في قطاع يمثل أولوية بالنسبة لك. لكن رفع أولوية قطاع يعني أن هناك موارد أقل متاحة لقطاعات أخرى؛ وهذه هي فكرة المفاضلة في الموازنة.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.75,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(sheetContext);
+                      showProblemSolver();
+                    },
+                    icon: const Icon(Icons.warning_amber_rounded),
+                    label: const Text('حل مشكلة مالية'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(50),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(sheetContext);
+                      showSuggestionForm();
+                    },
+                    icon: const Icon(Icons.lightbulb_outline_rounded),
+                    label: const Text('قدم اقتراحك لوزارة المالية'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(50),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final progress = (allocated / totalBudget).clamp(0.0, 1.0);
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text(
+            'لو كنت وزير المالية؟',
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
+          actions: [
+            IconButton(
+              tooltip: 'إعادة التوزيع',
+              onPressed: resetBudget,
+              icon: const Icon(Icons.restart_alt_rounded),
+            ),
+          ],
+        ),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 30),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(21),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                  colors: [
+                    scheme.primary,
+                    scheme.secondary,
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(28),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.account_balance_rounded,
+                    color: Colors.white,
+                    size: 34,
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'أنت صاحب القرار',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    'ابدأ بالموارد، ثم المصروفات، وبعدها وزّع الـ100 جنيه حسب أولوياتك وشاهد نتيجة قرارك.',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13.5,
+                      height: 1.7,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 14),
+
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: DropdownButtonFormField<Governorate>(
+                  value: selectedGovernorate,
+                  decoration: InputDecoration(
+                    labelText: '1 — اختار المحافظة',
+                    helperText: 'اختيار المحافظة يربط التجربة ببياناتها وقطاعاتها.',
+                    prefixIcon: const Icon(Icons.location_city_rounded),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  items: governorates
+                      .map(
+                        (g) => DropdownMenuItem<Governorate>(
+                          value: g,
+                          child: Text(g.name),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    setState(() => selectedGovernorate = value);
+                  },
+                ),
+              ),
+            ),
+
+            if (selectedGovernorate != null) ...[
+              const SizedBox(height: 10),
+              Card(
+                color: scheme.secondaryContainer,
+                child: Padding(
+                  padding: const EdgeInsets.all(15),
+                  child: Text(
+                    '2 — موارد الدولة والأنشطة\n'
+                    '${selectedGovernorate!.name}: ${selectedGovernorate!.sectors}',
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      height: 1.7,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 9),
+              OutlinedButton.icon(
+                onPressed: showRevenueSources,
+                icon: const Icon(Icons.account_balance_wallet_rounded),
+                label: const Text('اعرض مصادر الموارد والإيرادات'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 14),
+
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  children: [
+                    const Text(
+                      '3 — الميزانية الافتراضية المتاحة',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      '100 جنيه',
+                      style: TextStyle(
+                        fontSize: 34,
+                        fontWeight: FontWeight.w900,
+                        color: scheme.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'رقم افتراضي للتعلم فقط، وليس رقمًا من الموازنة الرسمية.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 12,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    const SizedBox(height: 9),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'موزع: ${money(allocated)} جنيه',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Text(
+                          'متبقي: ${money(remaining)} جنيه',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            color: remaining < 0 ? scheme.error : null,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            const Text(
+              '4 — وزّع الميزانية حسب أولوياتك',
+              style: TextStyle(
+                fontSize: 21,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              'حرّك المؤشرات وحدد الأولويات التي تراها مناسبة. لازم في النهاية توصل إلى 100 جنيه كاملة.',
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.6,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            ...allocation.keys.map((key) {
+              final value = allocation[key]!;
+              final max = (value + remaining).clamp(0.0, totalBudget);
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 10),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              key,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '${money(value)} جنيه',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              color: scheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Slider(
+                        value: value.clamp(0.0, max),
+                        min: 0,
+                        max: max <= 0 ? 1 : max,
+                        divisions: 100,
+                        label: money(value),
+                        onChanged: (newValue) {
+                          setState(() {
+                            allocation[key] = newValue.roundToDouble();
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+
+            const SizedBox(height: 6),
+
+            FilledButton.icon(
+              onPressed: selectedGovernorate != null &&
+                      (remaining).abs() < 0.001
+                  ? showResult
+                  : null,
+              icon: const Icon(Icons.pie_chart_rounded),
+              label: const Text(
+                '5 — اعتمد موازنتي وشوف النتيجة',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(56),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+            ),
+
+            if (selectedGovernorate == null)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Text(
+                  'اختار المحافظة أولًا عشان تبدأ التجربة.',
+                  textAlign: TextAlign.center,
+                ),
+              )
+            else if ((remaining).abs() >= 0.001)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'وزّع باقي ${money(remaining)} جنيه حتى يصبح المتبقي = 0.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: scheme.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+
+            const SizedBox(height: 18),
+
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: showProblemSolver,
+                    icon: const Icon(Icons.warning_amber_rounded),
+                    label: const Text('حل مشكلة مالية'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: showSuggestionForm,
+                    icon: const Icon(Icons.lightbulb_outline_rounded),
+                    label: const Text('اقتراحك'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 
 // ============================================================
 // BUDGET FIGURES FROM THE PROVIDED MINISTRY OF FINANCE IMAGES
