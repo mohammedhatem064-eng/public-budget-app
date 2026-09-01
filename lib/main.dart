@@ -2528,8 +2528,8 @@ class MinisterSimulationPage extends StatefulWidget {
 class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
   Governorate? selectedGovernorate;
 
-  // ميزانية تعليمية افتراضية — 100 جنيه كما تم الاتفاق.
-  static const double totalBudget = 100;
+  // ميزانية تعليمية افتراضية — 10,000 جنيه كما تم الاتفاق.
+  static const double totalBudget = 10000;
 
   final Map<String, double> allocation = {
     'الصحة': 0,
@@ -2919,7 +2919,7 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
     if ((remaining).abs() > 0.001) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('لازم توزع الـ100 جنيه كاملة قبل اعتماد الموازنة.'),
+          content: Text('لازم توزع الـ10,000 جنيه كاملة قبل اعتماد الموازنة.'),
         ),
       );
       return;
@@ -2941,12 +2941,12 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
     String priorityText;
     if (top == null) {
       priorityText = 'لم يتم تحديد أولوية.';
-    } else if (top.value >= 40) {
+    } else if (top.value >= totalBudget * 0.40) {
       priorityText =
-          'أعطيت أولوية قوية لـ${top.key} بنسبة ${money(top.value)}%.';
+          'أعطيت أولوية قوية لـ${top.key} بنسبة ${(top.value / totalBudget * 100).toStringAsFixed(1)}%.';
     } else {
       priorityText =
-          'أعلى أولوية عندك هي ${top.key} بنسبة ${money(top.value)}%.';
+          'أعلى أولوية عندك هي ${top.key} بنسبة ${(top.value / totalBudget * 100).toStringAsFixed(1)}%.';
     }
 
     showModalBottomSheet(
@@ -3047,7 +3047,7 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
                   ),
                   const SizedBox(height: 14),
                   const Text(
-                    'توزيعك للـ100 جنيه',
+                    'توزيعك للـ10,000 جنيه',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w900,
@@ -3182,7 +3182,7 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
                   ),
                   SizedBox(height: 6),
                   Text(
-                    'ابدأ بالموارد، ثم المصروفات، وبعدها وزّع الـ100 جنيه حسب أولوياتك وشاهد نتيجة قرارك.',
+                    'ابدأ بالموارد، ثم المصروفات، وبعدها وزّع الـ10,000 جنيه حسب أولوياتك وشاهد نتيجة قرارك.',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 13.5,
@@ -3270,7 +3270,7 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      '100 جنيه',
+                      '10,000 جنيه',
                       style: TextStyle(
                         fontSize: 34,
                         fontWeight: FontWeight.w900,
@@ -3327,7 +3327,7 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
             ),
             const SizedBox(height: 5),
             Text(
-              'حرّك المؤشرات وحدد الأولويات التي تراها مناسبة. لازم في النهاية توصل إلى 100 جنيه كاملة.',
+              'حرّك المؤشرات وحدد الأولويات التي تراها مناسبة. لازم في النهاية توصل إلى 10,000 جنيه كاملة.',
               style: TextStyle(
                 fontSize: 12.5,
                 height: 1.6,
@@ -3338,7 +3338,11 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
 
             ...allocation.keys.map((key) {
               final value = allocation[key]!;
-              final max = (value + remaining).clamp(0.0, totalBudget);
+
+              // كل Slider مستقل عن الآخر.
+              // تغيير قطاع واحد لا يغيّر قيمة أو مكان سهم أي قطاع آخر.
+              final availableForThisSector =
+                  (value + remaining).clamp(0.0, totalBudget);
 
               return Card(
                 margin: const EdgeInsets.only(bottom: 10),
@@ -3366,14 +3370,25 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
                         ],
                       ),
                       Slider(
-                        value: value.clamp(0.0, max),
+                        // الحد البصري ثابت عند 10,000؛ لا يعاد تحجيمه
+                        // عندما نغيّر قطاعًا آخر.
+                        value: value.clamp(0.0, totalBudget),
                         min: 0,
-                        max: max <= 0 ? 1 : max,
-                        divisions: 100,
+                        max: totalBudget,
+                        divisions: 1000,
                         label: money(value),
                         onChanged: (newValue) {
+                          final newAmount = newValue.roundToDouble();
+
+                          // نمنع تجاوز إجمالي الميزانية، من غير تحريك
+                          // أي قطاع آخر.
+                          final safeAmount = newAmount.clamp(
+                            0.0,
+                            availableForThisSector,
+                          );
+
                           setState(() {
-                            allocation[key] = newValue.roundToDouble();
+                            allocation[key] = safeAmount.toDouble();
                           });
                         },
                       ),
