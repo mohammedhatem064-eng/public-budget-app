@@ -1,6 +1,17 @@
-import 'package:flutter/material.dart';
+import 'dart:convert';
 
-void main() {
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Supabase.initialize(
+    url: 'https://fxdhinsdljyxyotsinwo.supabase.co',
+    anonKey: 'sb_publishable_L-zg4NYnM1Jror5rchY-Jg_HLb09kpT',
+  );
+
   runApp(const BudgetApp());
 }
 
@@ -1023,10 +1034,10 @@ class _HomePageState extends State<HomePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('لو كنت وزير المالية؟', style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900)),
+                    const Text('لو كنت وزير المالية؟', style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900)),
                     SizedBox(height: 5),
                     Text(
-                      'اختار محافظتك ووزّع 100 جنيه افتراضية على أولوياتك، ثم شاهد كيف يمكن أن تتغير أولوياتك ونتيجة قرارك.',
+                      'اختار محافظتك ووزّع مليار جنيه افتراضيًا على أولوياتك، ثم شاهد نتيجة قرارك.',
                       style: TextStyle(color: Colors.white, fontSize: 12.5, height: 1.6),
                     ),
                   ],
@@ -2528,21 +2539,769 @@ class MinisterSimulationPage extends StatefulWidget {
 class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
   Governorate? selectedGovernorate;
 
-  // ميزانية تعليمية افتراضية — 10,000 جنيه كما تم الاتفاق.
-  static const double totalBudget = 10000;
+  // ميزانية تعليمية افتراضية — مليار جنيه.
+  static const double totalBudget = 1000000000;
 
   final Map<String, double> allocation = {
+    'المالية والاقتصاد': 0,
+    'التعليم والبحث العلمي': 0,
     'الصحة': 0,
-    'التعليم': 0,
-    'الطرق والنقل': 0,
-    'الزراعة': 0,
-    'مياه الشرب والصرف الصحي': 0,
-    'الخدمات المحلية': 0,
-    'النظافة والبيئة': 0,
-    'احتياطي': 0,
+    'الطرق والنقل والمواصلات': 0,
+    'الزراعة والري': 0,
+    'مياه الشرب': 0,
+    'الصرف الصحي': 0,
+    'الإسكان والمرافق': 0,
+    'الكهرباء والطاقة': 0,
+    'الصناعة': 0,
+    'الاتصالات وتكنولوجيا المعلومات': 0,
+    'الدفاع والقوات المسلحة': 0,
+    'الداخلية والشرطة والأمن': 0,
+    'القضاء والعدالة': 0,
+    'الحماية الاجتماعية والتضامن': 0,
+    'العمل والتوظيف': 0,
+    'السياحة والآثار': 0,
+    'البيئة والنظافة': 0,
+    'الخدمات المحلية والإدارة الحكومية': 0,
+    'الثقافة والشباب والرياضة': 0,
+    'الاحتياطي والطوارئ': 0,
   };
 
   final TextEditingController suggestionController = TextEditingController();
+  final TextEditingController titleController = TextEditingController();
+  final TextEditingController solutionController = TextEditingController();
+
+  // آراء المواطنين العامة — محفوظة على Supabase لتظهر على الأجهزة المختلفة.
+  final TextEditingController publicNameController = TextEditingController();
+  final TextEditingController publicTitleController = TextEditingController();
+  final TextEditingController publicOpinionController = TextEditingController();
+  final TextEditingController publicSolutionController = TextEditingController();
+
+  Governorate? publicOpinionGovernorate;
+  String? publicOpinionSector;
+  List<Map<String, dynamic>> publicOpinions = [];
+  Map<int, List<Map<String, dynamic>>> publicOpinionReplies = {};
+  bool isLoadingPublicOpinions = false;
+  bool isPublishingOpinion = false;
+  bool isPublishingReply = false;
+
+  bool budgetApproved = false;
+  bool isEnglish = false;
+  bool hasSavedData = false;
+
+  static const _prefsKey = 'minister_simulation_state_v3';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedData();
+    publicOpinionSector = allocation.keys.first;
+    _loadPublicOpinions();
+  }
+
+  Future<void> _loadPublicOpinions() async {
+    if (mounted) {
+      setState(() => isLoadingPublicOpinions = true);
+    }
+
+    try {
+      final rows = await Supabase.instance.client
+          .from('citizen_opinions')
+          .select()
+          .order('created_at', ascending: false)
+          .limit(50);
+
+      if (!mounted) return;
+      final loadedOpinions = List<Map<String, dynamic>>.from(rows);
+      final opinionIds = loadedOpinions
+          .map((row) => (row['id'] as num?)?.toInt())
+          .whereType<int>()
+          .toList();
+
+      Map<int, List<Map<String, dynamic>>> loadedReplies = {};
+      if (opinionIds.isNotEmpty) {
+        final replyRows = await Supabase.instance.client
+            .from('citizen_opinion_replies')
+            .select()
+            .inFilter('opinion_id', opinionIds)
+            .order('created_at', ascending: true);
+
+        for (final row in List<Map<String, dynamic>>.from(replyRows)) {
+          final opinionId = (row['opinion_id'] as num?)?.toInt();
+          if (opinionId == null) continue;
+          loadedReplies.putIfAbsent(opinionId, () => []).add(row);
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        publicOpinions = loadedOpinions;
+        publicOpinionReplies = loadedReplies;
+        isLoadingPublicOpinions = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() => isLoadingPublicOpinions = false);
+      }
+    }
+  }
+
+  Future<void> _ensureAnonymousAuth() async {
+    final client = Supabase.instance.client;
+    if (client.auth.currentSession == null) {
+      await client.auth.signInAnonymously();
+    }
+  }
+
+  Future<bool> _publishOpinion() async {
+    final displayName = publicNameController.text.trim();
+    final title = publicTitleController.text.trim();
+    final opinion = publicOpinionController.text.trim();
+    final solution = publicSolutionController.text.trim();
+    final governorate = publicOpinionGovernorate?.name;
+    final sector = publicOpinionSector;
+
+    if (displayName.isEmpty ||
+        title.isEmpty ||
+        opinion.isEmpty ||
+        governorate == null ||
+        sector == null) {
+      return false;
+    }
+
+    setState(() => isPublishingOpinion = true);
+
+    try {
+      await _ensureAnonymousAuth();
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        throw Exception('لم يتم إنشاء مستخدم مجهول.');
+      }
+
+      await Supabase.instance.client.from('citizen_opinions').insert({
+        'user_id': user.id,
+        'display_name': displayName,
+        'governorate': governorate,
+        'sector': sector,
+        'title': title,
+        'opinion': opinion,
+        'financial_solution': solution.isEmpty ? null : solution,
+      });
+
+      await _loadPublicOpinions();
+
+      publicNameController.clear();
+      publicTitleController.clear();
+      publicOpinionController.clear();
+      publicSolutionController.clear();
+
+      if (mounted) {
+        setState(() => isPublishingOpinion = false);
+      }
+      return true;
+    } catch (error) {
+      if (mounted) {
+        setState(() => isPublishingOpinion = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('تعذر نشر الرأي حاليًا. حاول مرة أخرى.\n$error'),
+          ),
+        );
+      }
+      return false;
+    }
+  }
+
+  void showPublicOpinionForm() {
+    publicOpinionGovernorate ??= selectedGovernorate;
+    publicOpinionSector ??= allocation.keys.first;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Directionality(
+              textDirection: TextDirection.rtl,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(18, 8, 18,
+                    MediaQuery.of(sheetContext).viewInsets.bottom + 24),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        '📣 انشر رأيك للمواطنين',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      Text(
+                        'رأيك سيظهر في قائمة عامة ويمكن لأي مستخدم للتطبيق قراءته.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          height: 1.6,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: publicNameController,
+                        textInputAction: TextInputAction.next,
+                        decoration: InputDecoration(
+                          labelText: 'اسم العرض',
+                          hintText: 'مثال: محمد',
+                          prefixIcon: const Icon(Icons.person_outline_rounded),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<Governorate>(
+                        value: publicOpinionGovernorate,
+                        decoration: InputDecoration(
+                          labelText: 'المحافظة',
+                          prefixIcon: const Icon(Icons.location_city_rounded),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                        ),
+                        items: governorates
+                            .map(
+                              (g) => DropdownMenuItem<Governorate>(
+                                value: g,
+                                child: Text(g.name),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          setSheetState(() => publicOpinionGovernorate = value);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: publicOpinionSector,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          labelText: 'القطاع',
+                          prefixIcon: const Icon(Icons.category_outlined),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                        ),
+                        items: allocation.keys
+                            .map(
+                              (sector) => DropdownMenuItem<String>(
+                                value: sector,
+                                child: Text(sector),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          setSheetState(() => publicOpinionSector = value);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: publicTitleController,
+                        textInputAction: TextInputAction.next,
+                        decoration: InputDecoration(
+                          labelText: 'عنوان الرأي',
+                          hintText: 'مثال: تحسين الخدمات الصحية',
+                          prefixIcon: const Icon(Icons.title_rounded),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: publicOpinionController,
+                        maxLines: 5,
+                        decoration: InputDecoration(
+                          labelText: 'رأيك',
+                          hintText: 'اكتب رأيك أو المشكلة التي تريد مناقشتها...',
+                          prefixIcon: const Icon(Icons.forum_outlined),
+                          alignLabelWithHint: true,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: publicSolutionController,
+                        maxLines: 4,
+                        decoration: InputDecoration(
+                          labelText: 'الحل المالي المقترح (اختياري)',
+                          hintText: 'كيف تقترح تمويل الحل؟',
+                          prefixIcon: const Icon(Icons.account_balance_wallet_outlined),
+                          alignLabelWithHint: true,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: isPublishingOpinion
+                              ? null
+                              : () async {
+                                  final valid = publicNameController.text.trim().isNotEmpty &&
+                                      publicTitleController.text.trim().isNotEmpty &&
+                                      publicOpinionController.text.trim().isNotEmpty &&
+                                      publicOpinionGovernorate != null &&
+                                      publicOpinionSector != null;
+
+                                  if (!valid) {
+                                    ScaffoldMessenger.of(this.context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('اكمل الاسم والمحافظة والقطاع والعنوان والرأي أولًا.'),
+                                      ),
+                                    );
+                                    return;
+                                  }
+
+                                  setSheetState(() => isPublishingOpinion = true);
+                                  final published = await _publishOpinion();
+                                  if (!mounted) return;
+                                  if (published) {
+                                    Navigator.pop(sheetContext);
+                                    ScaffoldMessenger.of(this.context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('تم نشر رأيك بنجاح وسيظهر للمستخدمين الآخرين. ✅'),
+                                      ),
+                                    );
+                                  } else {
+                                    setSheetState(() => isPublishingOpinion = false);
+                                  }
+                                },
+                          icon: isPublishingOpinion
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.public_rounded),
+                          label: Text(isPublishingOpinion ? 'جاري النشر...' : 'نشر الرأي للجميع'),
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(52),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _replyToOpinion(int opinionId) async {
+    final nameController = TextEditingController();
+    final replyController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final submitted = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              18,
+              8,
+              18,
+              MediaQuery.of(sheetContext).viewInsets.bottom + 24,
+            ),
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    '💬 رد على الرأي',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: nameController,
+                    textInputAction: TextInputAction.next,
+                    style: const TextStyle(fontSize: 15),
+                    decoration: InputDecoration(
+                      labelText: 'اسمك',
+                      hintText: 'مثال: أحمد',
+                      prefixIcon: const Icon(Icons.person_outline_rounded),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(18)),
+                    ),
+                    validator: (value) => value == null || value.trim().isEmpty
+                        ? 'اكتب اسمك أولًا'
+                        : null,
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: replyController,
+                    maxLines: 5,
+                    style: const TextStyle(fontSize: 15),
+                    decoration: InputDecoration(
+                      labelText: 'الرد',
+                      hintText: 'اكتب ردك على هذا الرأي...',
+                      alignLabelWithHint: true,
+                      prefixIcon: const Icon(Icons.reply_rounded),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(18)),
+                    ),
+                    validator: (value) => value == null || value.trim().isEmpty
+                        ? 'اكتب الرد أولًا'
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: isPublishingReply
+                          ? null
+                          : () async {
+                              if (!(formKey.currentState?.validate() ?? false)) return;
+                              setState(() => isPublishingReply = true);
+                              try {
+                                await _ensureAnonymousAuth();
+                                final user = Supabase.instance.client.auth.currentUser;
+                                if (user == null) throw Exception('لم يتم تسجيل الدخول المجهول.');
+
+                                await Supabase.instance.client
+                                    .from('citizen_opinion_replies')
+                                    .insert({
+                                  'opinion_id': opinionId,
+                                  'user_id': user.id,
+                                  'display_name': nameController.text.trim(),
+                                  'reply': replyController.text.trim(),
+                                });
+
+                                if (mounted) setState(() => isPublishingReply = false);
+                                if (sheetContext.mounted) Navigator.pop(sheetContext, true);
+                              } catch (error) {
+                                if (mounted) setState(() => isPublishingReply = false);
+                                if (sheetContext.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('تعذر نشر الرد حاليًا.\n$error')),
+                                  );
+                                }
+                              }
+                            },
+                      icon: isPublishingReply
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.send_rounded),
+                      label: Text(
+                        isPublishingReply ? 'جاري النشر...' : 'نشر الرد',
+                        style: const TextStyle(fontSize: 15),
+                      ),
+                      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (submitted == true && mounted) {
+      await _loadPublicOpinions();
+      if (mounted) {
+        showPublicOpinions();
+      }
+    }
+  }
+
+  void showPublicOpinions() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: SafeArea(
+            child: SizedBox(
+              height: MediaQuery.of(sheetContext).size.height * 0.82,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 8, 18, 8),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            '🗣️ آراء المواطنين',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'تحديث',
+                          onPressed: _loadPublicOpinions,
+                          icon: const Icon(Icons.refresh_rounded),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: isLoadingPublicOpinions
+                        ? const Center(child: CircularProgressIndicator())
+                        : publicOpinions.isEmpty
+                            ? const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(30),
+                                  child: Text(
+                                    'لا توجد آراء منشورة حتى الآن. كن أول من يشارك رأيه!',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(fontSize: 15, height: 1.7),
+                                  ),
+                                ),
+                              )
+                            : ListView.separated(
+                                padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
+                                itemCount: publicOpinions.length,
+                                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                                itemBuilder: (_, index) {
+                                  final opinion = publicOpinions[index];
+                                  final displayName = opinion['display_name']?.toString() ?? 'مواطن';
+                                  final governorate = opinion['governorate']?.toString() ?? '';
+                                  final sector = opinion['sector']?.toString() ?? '';
+                                  final title = opinion['title']?.toString() ?? '';
+                                  final text = opinion['opinion']?.toString() ?? '';
+                                  final solution = opinion['financial_solution']?.toString();
+
+                                  return Card(
+                                    elevation: 0,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(15),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              CircleAvatar(
+                                                child: Text(
+                                                  displayName.isEmpty ? 'م' : displayName.characters.first,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 10),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      displayName,
+                                                      style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white, decoration: TextDecoration.none),
+                                                    ),
+                                                    Text(
+                                                      '$governorate • $sector',
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 12),
+                                          Text(
+                                            title,
+                                            style: const TextStyle(
+                                              fontSize: 17,
+                                              fontWeight: FontWeight.w900,
+                                              color: Colors.white,
+                                              decoration: TextDecoration.none,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 7),
+                                          Text(
+                                            text,
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              height: 1.6,
+                                              color: Colors.white,
+                                              decoration: TextDecoration.none,
+                                            ),
+                                          ),
+                                          if (solution != null && solution.trim().isNotEmpty) ...[
+                                            const SizedBox(height: 10),
+                                            Container(
+                                              width: double.infinity,
+                                              padding: const EdgeInsets.all(11),
+                                              decoration: BoxDecoration(
+                                                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                                borderRadius: BorderRadius.circular(14),
+                                              ),
+                                              child: Text(
+                                                '💰 الحل المالي: $solution',
+                                                style: const TextStyle(height: 1.6, color: Colors.white, decoration: TextDecoration.none),
+                                              ),
+                                            ),
+                                          ],
+                                          const SizedBox(height: 8),
+                                          if ((publicOpinionReplies[(opinion['id'] as num?)?.toInt()] ?? []).isNotEmpty) ...[
+                                            const Divider(height: 18),
+                                            Text(
+                                              '💬 الردود',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w900,
+                                                color: Colors.white,
+                                                decoration: TextDecoration.none,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            ...((publicOpinionReplies[(opinion['id'] as num?)?.toInt()] ?? []).map((reply) {
+                                              final replyName = reply['display_name']?.toString() ?? 'مواطن';
+                                              final replyText = reply['reply']?.toString() ?? '';
+                                              return Container(
+                                                width: double.infinity,
+                                                margin: const EdgeInsets.only(bottom: 7),
+                                                padding: const EdgeInsets.all(10),
+                                                decoration: BoxDecoration(
+                                                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                                  borderRadius: BorderRadius.circular(13),
+                                                ),
+                                                child: RichText(
+                                                  text: TextSpan(
+                                                    style: DefaultTextStyle.of(context).style.copyWith(
+                                                      fontSize: 14,
+                                                      height: 1.6,
+                                                      color: Colors.white,
+                                                      decoration: TextDecoration.none,
+                                                    ),
+                                                    children: [
+                                                      TextSpan(text: '$replyName: ', style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white, decoration: TextDecoration.none)),
+                                                      TextSpan(text: replyText, style: const TextStyle(color: Colors.white, decoration: TextDecoration.none)),
+                                                    ],
+                                                  ),
+                                                ),
+                                              );
+                                            })),
+                                          ],
+                                          Align(
+                                            alignment: Alignment.centerLeft,
+                                            child: TextButton.icon(
+                                              onPressed: () async {
+                                                final id = (opinion['id'] as num?)?.toInt();
+                                                if (id == null) return;
+                                                Navigator.pop(sheetContext);
+                                                await _replyToOpinion(id);
+                                              },
+                                              icon: const Icon(Icons.reply_rounded),
+                                              label: Text(
+                                                'رد (${(publicOpinionReplies[(opinion['id'] as num?)?.toInt()] ?? []).length})',
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () {
+                          Navigator.pop(sheetContext);
+                          showPublicOpinionForm();
+                        },
+                        icon: const Icon(Icons.add_comment_rounded),
+                        label: const Text('انشر رأيك'),
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(50),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _loadSavedData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_prefsKey);
+    if (raw == null) return;
+    try {
+      final data = jsonDecode(raw) as Map<String, dynamic>;
+      final rawAllocation = data['allocation'];
+      if (rawAllocation is Map) {
+        final savedAllocation = Map<String, dynamic>.from(rawAllocation);
+        for (final key in allocation.keys) {
+          allocation[key] = (savedAllocation[key] as num?)?.toDouble() ?? 0;
+        }
+      }
+      titleController.text = data['title'] as String? ?? '';
+      suggestionController.text = data['suggestion'] as String? ?? '';
+      solutionController.text = data['solution'] as String? ?? '';
+      budgetApproved = data['approved'] == true;
+      isEnglish = data['english'] == true;
+      if (mounted) setState(() => hasSavedData = true);
+    } catch (_) {
+      // Ignore malformed local data and keep the default state.
+    }
+  }
+
+  Future<void> _saveData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = {
+      'allocation': allocation,
+      'title': titleController.text.trim(),
+      'suggestion': suggestionController.text.trim(),
+      'solution': solutionController.text.trim(),
+      'approved': budgetApproved,
+      'english': isEnglish,
+    };
+    await prefs.setString(_prefsKey, jsonEncode(data));
+    if (mounted) setState(() => hasSavedData = true);
+  }
+
+  Future<void> _clearSavedData() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_prefsKey);
+    for (final key in allocation.keys) {
+      allocation[key] = 0;
+    }
+    titleController.clear();
+    suggestionController.clear();
+    solutionController.clear();
+    budgetApproved = false;
+    if (mounted) setState(() => hasSavedData = false);
+  }
+
+  String t(String ar, String en) => isEnglish ? en : ar;
 
   double get allocated =>
       allocation.values.fold(0, (sum, value) => sum + value);
@@ -2552,14 +3311,61 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
   @override
   void dispose() {
     suggestionController.dispose();
+    titleController.dispose();
+    solutionController.dispose();
+    publicNameController.dispose();
+    publicTitleController.dispose();
+    publicOpinionController.dispose();
+    publicSolutionController.dispose();
     super.dispose();
   }
 
   String money(double value) {
+    if (value >= 1000000000 && value % 1000000000 == 0) {
+      return '${(value / 1000000000).toStringAsFixed(0)} مليار';
+    }
+    if (value >= 1000000 && value % 1000000 == 0) {
+      return '${(value / 1000000).toStringAsFixed(0)} مليون';
+    }
     if (value == value.roundToDouble()) {
       return value.round().toString();
     }
     return value.toStringAsFixed(1);
+  }
+
+  Widget buildAllocationChart(BuildContext context) {
+    final entries = allocation.entries.where((e) => e.value > 0).toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    if (entries.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(18),
+        child: Text(t('وزّع الميزانية أولًا لعرض الرسم.', 'Allocate the budget first to see the chart.')),
+      );
+    }
+    return Column(
+      children: entries.take(8).map((entry) {
+        final percent = entry.value / totalBudget;
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(child: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.w700))),
+                  Text('${(percent * 100).toStringAsFixed(1)}%'),
+                ],
+              ),
+              const SizedBox(height: 5),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(99),
+                child: LinearProgressIndicator(value: percent, minHeight: 9),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
   }
 
   void resetBudget() {
@@ -2567,7 +3373,9 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
       for (final key in allocation.keys) {
         allocation[key] = 0;
       }
+      budgetApproved = false;
     });
+    _saveData();
   }
 
   void showRevenueSources() {
@@ -2819,86 +3627,125 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
               18,
               MediaQuery.of(sheetContext).viewInsets.bottom + 24,
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  '💡 اقترح لوزارة المالية',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 7),
-                Text(
-                  'اكتب فكرتك لتحسين ترتيب الأولويات أو معالجة مشكلة مالية.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    height: 1.6,
-                    color: Theme.of(sheetContext)
-                        .colorScheme
-                        .onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: suggestionController,
-                  maxLines: 5,
-                  textInputAction: TextInputAction.newline,
-                  decoration: InputDecoration(
-                    hintText: 'اكتب اقتراحك هنا...',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(18),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    '💡 اقتراحك وحل المشكلة المالية',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: () {
-                    final suggestion =
-                        suggestionController.text.trim();
-                    if (suggestion.isEmpty) return;
-
-                    Navigator.pop(sheetContext);
-                    showDialog(
-                      context: this.context,
-                      builder: (_) => Directionality(
-                        textDirection: TextDirection.rtl,
-                        child: AlertDialog(
-                          title: const Text(
-                            'تم تسجيل اقتراحك',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          content: const Text(
-                            'شكرًا لمشاركتك. هذا الاقتراح جزء من تجربة تعليمية، وإذا تم ربط التطبيق لاحقًا بخدمة إرسال فعلية يمكن إرساله للجهة المختصة.',
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              height: 1.7,
-                            ),
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('تمام'),
-                            ),
-                          ],
-                        ),
+                  const SizedBox(height: 7),
+                  Text(
+                    'أضف عنوانًا لمقترحك، ثم اكتب اقتراحك والحل الذي تراه مناسبًا للمشكلة المالية.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      height: 1.6,
+                      color: Theme.of(sheetContext)
+                          .colorScheme
+                          .onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: titleController,
+                    decoration: InputDecoration(
+                      labelText: 'اسم أو عنوان المقترح',
+                      hintText: 'مثال: موازنة تركز على الخدمات الأساسية',
+                      prefixIcon: const Icon(Icons.title_rounded),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
                       ),
-                    );
-                  },
-                  icon: const Icon(Icons.send_rounded),
-                  label: const Text(
-                    'حفظ الاقتراح',
-                    style: TextStyle(fontWeight: FontWeight.w900),
+                    ),
                   ),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: suggestionController,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      labelText: t('اقتراحك', 'Your suggestion'),
+                      hintText: 'اكتب اقتراحك لتحسين ترتيب أولويات الإنفاق...',
+                      prefixIcon: const Icon(Icons.lightbulb_outline_rounded),
+                      alignLabelWithHint: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: solutionController,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      labelText: 'حل المشكلة المالية',
+                      hintText: 'كيف تقترح التعامل مع المشكلة أو تمويل الحل؟',
+                      prefixIcon: const Icon(Icons.build_circle_outlined),
+                      alignLabelWithHint: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  FilledButton.icon(
+                    onPressed: () {
+                      final title = titleController.text.trim();
+                      final suggestion = suggestionController.text.trim();
+                      final solution = solutionController.text.trim();
+
+                      if (title.isEmpty && suggestion.isEmpty && solution.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('اكتب عنوانًا أو اقتراحًا أو حلًا أولًا.'),
+                          ),
+                        );
+                        return;
+                      }
+
+                      Navigator.pop(sheetContext);
+                      showDialog(
+                        context: this.context,
+                        builder: (_) => Directionality(
+                          textDirection: TextDirection.rtl,
+                          child: AlertDialog(
+                            title: const Text(
+                              'تم حفظ مشاركتك',
+                              style: TextStyle(fontWeight: FontWeight.w900),
+                            ),
+                            content: Text(
+                              'العنوان: ${title.isEmpty ? 'بدون عنوان' : title}\n\n'
+                              'الاقتراح: ${suggestion.isEmpty ? 'لا يوجد' : suggestion}\n\n'
+                              'الحل المالي: ${solution.isEmpty ? 'لا يوجد' : solution}',
+                              style: const TextStyle(
+                                fontSize: 13.5,
+                                height: 1.75,
+                              ),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('تمام'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.save_rounded),
+                    label: const Text(
+                      'حفظ الاقتراح والحل',
+                      style: TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(52),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -2907,6 +3754,8 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
   }
 
   void showResult() {
+    budgetApproved = true;
+    _saveData();
     if (selectedGovernorate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -2919,7 +3768,7 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
     if ((remaining).abs() > 0.001) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('لازم توزع الـ10,000 جنيه كاملة قبل اعتماد الموازنة.'),
+          content: Text('لازم توزع الـمليار جنيه كاملة قبل اعتماد الموازنة.'),
         ),
       );
       return;
@@ -3047,7 +3896,7 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
                   ),
                   const SizedBox(height: 14),
                   const Text(
-                    'توزيعك للـ10,000 جنيه',
+                    'توزيعك للـمليار جنيه',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w900,
@@ -3100,7 +3949,7 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
                       showProblemSolver();
                     },
                     icon: const Icon(Icons.warning_amber_rounded),
-                    label: const Text('حل مشكلة مالية'),
+                    label: Text(t('حل مشكلة مالية', 'Solve a financial problem')),
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size.fromHeight(50),
                     ),
@@ -3112,7 +3961,7 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
                       showSuggestionForm();
                     },
                     icon: const Icon(Icons.lightbulb_outline_rounded),
-                    label: const Text('قدم اقتراحك لوزارة المالية'),
+                    label: Text(t('قدم اقتراحك لوزارة المالية', 'Send your suggestion to the Ministry of Finance')),
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size.fromHeight(50),
                     ),
@@ -3135,13 +3984,26 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text(
-            'لو كنت وزير المالية؟',
+          title: Text(
+            t('لو كنت وزير المالية؟', 'If you were the Minister of Finance?'),
             style: TextStyle(fontWeight: FontWeight.w900),
           ),
           actions: [
             IconButton(
-              tooltip: 'إعادة التوزيع',
+              tooltip: t('العربية / English', 'العربية / English'),
+              onPressed: () {
+                setState(() => isEnglish = !isEnglish);
+                _saveData();
+              },
+              icon: const Icon(Icons.language_rounded),
+            ),
+            IconButton(
+              tooltip: t('حفظ', 'Save'),
+              onPressed: _saveData,
+              icon: const Icon(Icons.save_rounded),
+            ),
+            IconButton(
+              tooltip: t('إعادة التوزيع', 'Reset'),
               onPressed: resetBudget,
               icon: const Icon(Icons.restart_alt_rounded),
             ),
@@ -3182,7 +4044,7 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
                   ),
                   SizedBox(height: 6),
                   Text(
-                    'ابدأ بالموارد، ثم المصروفات، وبعدها وزّع الـ10,000 جنيه حسب أولوياتك وشاهد نتيجة قرارك.',
+                    'ابدأ بالموارد، ثم وزّع المليار جنيه على كل قطاعات الدولة حسب أولوياتك، ثم اعتمد موازنتك.',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 13.5,
@@ -3270,7 +4132,7 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      '10,000 جنيه',
+                      'مليار جنيه',
                       style: TextStyle(
                         fontSize: 34,
                         fontWeight: FontWeight.w900,
@@ -3316,6 +4178,28 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
               ),
             ),
 
+            if (budgetApproved) ...[
+              const SizedBox(height: 10),
+              Card(
+                color: scheme.primaryContainer,
+                child: const Padding(
+                  padding: EdgeInsets.all(14),
+                  child: Row(
+                    children: [
+                      Icon(Icons.verified_rounded),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'تم اعتماد الموازنة الافتراضية على هذا الجهاز.',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+
             const SizedBox(height: 16),
 
             const Text(
@@ -3327,7 +4211,7 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
             ),
             const SizedBox(height: 5),
             Text(
-              'حرّك المؤشرات وحدد الأولويات التي تراها مناسبة. لازم في النهاية توصل إلى 10,000 جنيه كاملة.',
+              'حرّك المؤشرات وحدد الأولويات التي تراها مناسبة. لازم في النهاية توصل إلى مليار جنيه كاملة.',
               style: TextStyle(
                 fontSize: 12.5,
                 height: 1.6,
@@ -3370,7 +4254,7 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
                         ],
                       ),
                       Slider(
-                        // الحد البصري ثابت عند 10,000؛ لا يعاد تحجيمه
+                        // الحد البصري ثابت عند 1,000,000,000؛ لا يعاد تحجيمه
                         // عندما نغيّر قطاعًا آخر.
                         value: value.clamp(0.0, totalBudget),
                         min: 0,
@@ -3406,9 +4290,9 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
                   ? showResult
                   : null,
               icon: const Icon(Icons.pie_chart_rounded),
-              label: const Text(
-                '5 — اعتمد موازنتي وشوف النتيجة',
-                style: TextStyle(
+              label: Text(
+                t('5 — اعتمد الموازنة وشوف النتيجة', '5 — Approve the budget and see the result'),
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
                 ),
@@ -3422,10 +4306,10 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
             ),
 
             if (selectedGovernorate == null)
-              const Padding(
-                padding: EdgeInsets.only(top: 8),
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  'اختار المحافظة أولًا عشان تبدأ التجربة.',
+                  t('اختار المحافظة أولًا عشان تبدأ التجربة.', 'Choose a governorate first to start the simulation.'),
                   textAlign: TextAlign.center,
                 ),
               )
@@ -3433,7 +4317,7 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  'وزّع باقي ${money(remaining)} جنيه حتى يصبح المتبقي = 0.',
+                  t('وزّع باقي ${money(remaining)} جنيه حتى يصبح المتبقي = 0.', 'Allocate the remaining ${money(remaining)} EGP until the balance is 0.'),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: scheme.primary,
@@ -3444,13 +4328,114 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
 
             const SizedBox(height: 18),
 
+            Card(
+              elevation: 0,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(t('📊 ملخص توزيع الموازنة', '📊 Budget allocation summary'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 6),
+                    Text(t('أعلى 8 قطاعات حسب المبلغ المخصص.', 'Top 8 sectors by allocated amount.')),
+                    const SizedBox(height: 12),
+                    buildAllocationChart(context),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            if (hasSavedData)
+              Card(
+                elevation: 0,
+                child: ListTile(
+                  leading: const Icon(Icons.cloud_done_rounded),
+                  title: Text(t('بياناتك محفوظة على الجهاز', 'Your data is saved on this device')),
+                  subtitle: Text(t('يمكنك إغلاق التطبيق والعودة لإكمال التجربة.', 'You can close the app and return to continue.')),
+                  trailing: IconButton(
+                    tooltip: t('مسح البيانات المحفوظة', 'Clear saved data'),
+                    onPressed: _clearSavedData,
+                    icon: const Icon(Icons.delete_outline_rounded),
+                  ),
+                ),
+              ),
+
+            const SizedBox(height: 18),
+
+            Card(
+              elevation: 0,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.public_rounded,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 9),
+                        Expanded(
+                          child: Text(
+                            t('منصة آراء المواطنين', 'Citizen opinions'),
+                            style: const TextStyle(
+                              fontSize: 19,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 7),
+                    Text(
+                      t(
+                        'انشر رأيك ليظهر للمستخدمين الآخرين على أجهزتهم، واقرأ آراء المواطنين المنشورة.',
+                        'Publish your opinion so other users can see it, and read public opinions.',
+                      ),
+                      style: TextStyle(
+                        height: 1.6,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: showPublicOpinionForm,
+                            icon: const Icon(Icons.add_comment_rounded),
+                            label: Text(t('انشر رأيك', 'Publish opinion')),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: showPublicOpinions,
+                            icon: const Icon(Icons.forum_rounded),
+                            label: Text(
+                              '${t('آراء الناس', 'Public opinions')} (${publicOpinions.length})',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 18),
+
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: showProblemSolver,
                     icon: const Icon(Icons.warning_amber_rounded),
-                    label: const Text('حل مشكلة مالية'),
+                    label: Text(t('حل مشكلة مالية', 'Solve a financial problem')),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -3458,7 +4443,7 @@ class _MinisterSimulationPageState extends State<MinisterSimulationPage> {
                   child: OutlinedButton.icon(
                     onPressed: showSuggestionForm,
                     icon: const Icon(Icons.lightbulb_outline_rounded),
-                    label: const Text('اقتراحك'),
+                    label: Text(t('اقتراحك', 'Your suggestion')),
                   ),
                 ),
               ],
