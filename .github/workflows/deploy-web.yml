@@ -43,3 +43,5 @@ jobs:
           publish_dir: ./build/web
           force_orphan: true
           commit_message: "Deploy Flutter Web ${{ github.sha }}"
+
+# Web deployment is automatic from branch mohammed.
